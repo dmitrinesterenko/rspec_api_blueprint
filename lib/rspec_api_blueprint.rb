@@ -2,6 +2,8 @@ require "rspec_api_blueprint/version"
 require "rspec_api_blueprint/string_extensions"
 require "rspec_api_blueprint/helpers"
 
+file_names_list = []
+
 RSpec.configure do |config|
   config.include RSpecApiBlueprint::Helpers, type: :request
 
@@ -47,6 +49,23 @@ RSpec.configure do |config|
       end
 
       File.open(file, 'a') do |f|
+        documentation_file_path = '/config/documentation.yml'
+        documentation_file_fullpath = File.join(Rails.root, documentation_file_path)
+        documentation_file_exists = File.exists? documentation_file_fullpath
+        
+        if documentation_file_exists && !(file_names_list.include? file_name)
+
+          file_names_list.push(file_name)
+          configs = YAML.load_file(documentation_file_fullpath)
+
+          f.write [
+            configs['blueprint']['format_declaration'],
+            configs['blueprint']['application'],
+            "#{configs['blueprint']['subheading_prefix']} - #{file_name}",
+            "\n"
+          ].join("\n")
+        end
+
         # Resource & Action
         f.write "# #{action}\n\n"
 
@@ -70,6 +89,8 @@ RSpec.configure do |config|
               body = "#{JSON.pretty_generate(JSON.parse(request_body))}\n\n"
             elsif request.content_type == 'application/x-www-form-urlencoded'
               body = "#{request_body}\n\n"
+            else
+              f.write request.content_type
             end
             f.write body.indent(authorization_header ? 12 : 8)
           end
